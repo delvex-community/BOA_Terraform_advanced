@@ -1,0 +1,68 @@
+pipeline {
+  agent any
+
+  options {
+    disableConcurrentBuilds()
+    timestamps()
+  }
+
+  environment {
+    TF_IN_AUTOMATION = "true"
+  }
+
+  stages {
+
+    stage('Terraform Init') {
+      steps {
+        sh '''
+          terraform init -input=false
+        '''
+      }
+    }
+
+    stage('Terraform Validate') {
+      steps {
+        sh '''
+          terraform validate
+        '''
+      }
+    }
+
+    stage('Terraform Plan') {
+      when {
+        branch 'staging'
+      }
+      steps {
+        sh '''
+          terraform plan -out=tfplan
+        '''
+      }
+    }
+
+    stage('Manual Approval') {
+      when {
+        branch 'main'
+      }
+      steps {
+        input message: "Approve Terraform Apply for MAIN?"
+      }
+    }
+
+    stage('Terraform Apply') {
+      when {
+        branch 'main'
+      }
+      steps {
+        sh '''
+          terraform apply -auto-approve
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "Pipeline completed for branch: ${env.BRANCH_NAME}"
+    }
+  }
+}

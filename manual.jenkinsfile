@@ -1,0 +1,75 @@
+pipeline {
+  agent any
+
+  options {
+    disableConcurrentBuilds()
+    timestamps()
+  }
+
+  environment {
+    TF_IN_AUTOMATION = "true"
+  }
+
+  stages {
+
+    stage('Clone Git Repository') {
+      steps {
+        git branch: "${env.BRANCH_NAME}",
+            url: 'https://github.com/redashu/terraform_BOA_test.git'
+      }
+    }
+
+    stage('Terraform Init') {
+      steps {
+        sh '''
+          terraform init -input=false
+        '''
+      }
+    }
+
+    stage('Terraform Validate') {
+      steps {
+        sh '''
+          terraform validate
+        '''
+      }
+    }
+
+    stage('Terraform Plan (Staging)') {
+      when {
+        branch 'staging'
+      }
+      steps {
+        sh '''
+          terraform plan
+        '''
+      }
+    }
+
+    stage('Manual Approval (Main)') {
+      when {
+        branch 'main'
+      }
+      steps {
+        input message: 'Approve Terraform Apply for MAIN branch?'
+      }
+    }
+
+    stage('Terraform Apply (Main)') {
+      when {
+        branch 'main'
+      }
+      steps {
+        sh '''
+          terraform apply -auto-approve
+        '''
+      }
+    }
+  }
+
+  post {
+    always {
+      echo "Pipeline completed for branch: ${env.BRANCH_NAME}"
+    }
+  }
+}
